@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thermostat Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #222222;
+    --border: #2a2a2a;
+    --text: #f0ede8;
+    --muted: #666;
+    --heat: #e87c3e;
+    --cool: #5b9cf6;
+    --green: #5cb88a;
+    --red: #e85e5e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  /* ── Setup panel ── */
+  .panel {
+    max-width: 480px;
+    margin: 4rem auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  .panel h2 { font-size: 16px; font-weight: 400; margin-bottom: 0.5rem; }
+  .panel p  { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+  .panel a  { color: var(--cool); text-decoration: none; }
+  .panel a:hover { text-decoration: underline; }
+
+  label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    margin-bottom: 1rem;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--cool); }
+
+  .btn {
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    padding: 6px 14px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: #555; color: var(--text); }
+
+  .err { margin-top: 1rem; font-size: 13px; color: var(--heat); font-family: 'DM Mono', monospace; display: none; }
+
+  /* ── Header ── */
+  header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5rem; }
+  .logo { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+  .page-title { font-size: 22px; font-weight: 300; letter-spacing: -0.02em; margin-top: 6px; }
+  .header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .status-row { display: flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .status-dot.live  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.error { background: var(--heat); }
+  .refresh-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .pin-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; transition: all 0.15s; background: transparent;
+  }
+  .pin-badge.unlocked { color: var(--green); border-color: #1a3028; background: #0a1810; }
+  .pin-badge:hover { border-color: #555; color: var(--text); }
+
+  /* ── Summary ── */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 2rem; }
+  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .s-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .s-val { font-size: 24px; font-weight: 300; letter-spacing: -0.03em; }
+
+  /* ── Cards ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+
+  .t-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem;
+    position: relative; overflow: hidden; transition: border-color 0.2s;
+  }
+  .t-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent, var(--border)); transition: background 0.3s;
+  }
+  .t-card.heating { --accent: var(--heat); border-color: #2a1a10; }
+  .t-card.cooling { --accent: var(--cool); border-color: #0f1e2e; }
+
+  .t-room { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .t-temp { font-size: 48px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }
+  .t-unit { font-size: 20px; color: var(--muted); vertical-align: super; }
+  .t-setpoint { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .t-setpoint span { color: var(--text); }
+  .t-footer { display: flex; justify-content: space-between; align-items: center; }
+  .t-mode { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; border: 1px solid; }
+  .mode-heat { color: var(--heat); border-color: #3a2010; background: #1a0e08; }
+  .mode-cool { color: var(--cool); border-color: #0f2040; background: #081018; }
+  .mode-off  { color: var(--muted); border-color: var(--border); background: transparent; }
+  .mode-auto { color: var(--green); border-color: #1a3028; background: #0a1810; }
+  .t-humidity { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* ── Controls ── */
+  .t-controls { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: none; }
+  .t-controls.visible { display: block; }
+  .ctrl-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .setpoint-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .setpoint-val { font-family: 'DM Mono', monospace; font-size: 18px; min-width: 52px; text-align: center; }
+
+  .ctrl-btn {
+    width: 30px; height: 30px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: background 0.1s; flex-shrink: 0;
+  }
+  .ctrl-btn:hover { background: #2e2e2e; }
+  .ctrl-btn:active { background: #383838; }
+
+  .mode-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mode-btn {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .mode-btn:hover { border-color: #555; color: var(--text); }
+  .mode-btn.active-heat { color: var(--heat); border-color: #3a2010; background: #1a0e08; }
+  .mode-btn.active-cool { color: var(--cool); border-color: #0f2040; background: #081018; }
+  .mode-btn.active-off  { color: var(--text); border-color: #555; background: var(--surface2); }
+  .mode-btn.active-auto { color: var(--green); border-color: #1a3028; background: #0a1810; }
+
+  .send-btn {
+    margin-top: 10px; width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.08em; padding: 7px; cursor: pointer; transition: background 0.15s;
+  }
+  .send-btn:hover { background: #2e2e2e; }
+  .send-btn.sending { opacity: 0.5; pointer-events: none; }
+  .send-btn.success { color: var(--green); border-color: #1a3028; background: #0a1810; }
+  .send-btn.fail    { color: var(--red); border-color: #3a1010; background: #1a0808; }
+
+  /* ── PIN modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 2rem; width: 300px; text-align: center;
+  }
+  .modal h3 { font-size: 15px; font-weight: 400; margin-bottom: 6px; }
+  .modal p  { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
+  .pin-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--border); background: transparent; transition: background 0.1s; }
+  .pin-dot.filled { background: var(--text); border-color: var(--text); }
+  .pin-dot.error  { background: var(--heat); border-color: var(--heat); }
+
+  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .num-btn {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 18px;
+    padding: 14px; cursor: pointer; transition: background 0.1s;
+  }
+  .num-btn:hover { background: #2e2e2e; }
+  .num-btn:active { background: #383838; }
+  .num-btn.del { font-size: 14px; color: var(--muted); }
+  .num-btn.cancel-num { font-size: 12px; color: var(--muted); letter-spacing: 0.05em; }
+
+  /* ── Skeleton ── */
+  .skeleton { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; height: 160px; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  #dashboard { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══ Setup ══ -->
+<div class="panel" id="setup">
+  <h2>Thermostat dashboard</h2>
+  <p>
+    Enter your SmartThings Personal Access Token and set a 4-digit control PIN.<br><br>
+    Generate a token at <a href="https://account.smartthings.com/tokens" target="_blank">account.smartthings.com/tokens</a> —
+    enable <strong>Devices (read + execute)</strong> scopes for full control.<br><br>
+    Anyone can view temperatures. Only PIN holders can change setpoints or modes.
+  </p>
+  <label for="token-input">SmartThings Token</label>
+  <input type="text" id="token-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" spellcheck="false" />
+  <label for="pin-input">Control PIN (4 digits)</label>
+  <input type="password" id="pin-input" placeholder="e.g. 1234" maxlength="4" autocomplete="off" />
+  <button class="btn" onclick="startDashboard()">Connect →</button>
+  <div class="err" id="err-msg"></div>
+</div>
+
+<!-- ══ Dashboard ══ -->
+<div id="dashboard">
+  <header>
+    <div>
+      <div class="logo">SmartThings</div>
+      <div class="page-title">Thermostats</div>
+    </div>
+    <div class="header-right">
+      <div class="status-row">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">connecting...</span>
+      </div>
+      <div class="refresh-info" id="refresh-info"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="pin-badge" id="pin-badge" onclick="openPinModal()">🔒 unlock controls</button>
+        <button class="btn-ghost" onclick="resetDashboard()">change token</button>
+      </div>
+    </div>
+  </header>
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- ══ PIN modal ══ -->
+<div class="modal-overlay" id="pin-modal" style="display:none" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <h3 id="modal-title">Enter PIN</h3>
+    <p id="modal-sub">Unlock setpoint and mode controls</p>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" onclick="pinKey('1')">1</button>
+      <button class="num-btn" onclick="pinKey('2')">2</button>
+      <button class="num-btn" onclick="pinKey('3')">3</button>
+      <button class="num-btn" onclick="pinKey('4')">4</button>
+      <button class="num-btn" onclick="pinKey('5')">5</button>
+      <button class="num-btn" onclick="pinKey('6')">6</button>
+      <button class="num-btn" onclick="pinKey('7')">7</button>
+      <button class="num-btn" onclick="pinKey('8')">8</button>
+      <button class="num-btn" onclick="pinKey('9')">9</button>
+      <button class="num-btn cancel-num" onclick="closePinModal()">cancel</button>
+      <button class="num-btn" onclick="pinKey('0')">0</button>
+      <button class="num-btn del" onclick="pinDel()">⌫</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://api.smartthings.com/v1';
+let token = '', controlPin = '', unlocked = false;
+let pollTimer = null, lastUpdated = null;
+let deviceCache = [], pendingChanges = {};
+let pinEntry = '';
+const POLL_MS = 60000;
+
+// ── Setup ──
+function startDashboard() {
+  const t = document.getElementById('token-input').value.trim();
+  const p = document.getElementById('pin-input').value.trim();
+  if (!t) return showSetupErr('Paste your SmartThings token.');
+  if (!/^\d{4}$/.test(p)) return showSetupErr('PIN must be exactly 4 digits.');
+  token = t; controlPin = p;
+  localStorage.setItem('st_token', t);
+  localStorage.setItem('st_pin', p);
+  showDashboard();
+}
+
+function resetDashboard() {
+  clearInterval(pollTimer);
+  localStorage.removeItem('st_token'); localStorage.removeItem('st_pin');
+  token = ''; controlPin = ''; unlocked = false; deviceCache = []; pendingChanges = {};
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('setup').style.display = 'block';
+  document.getElementById('token-input').value = '';
+  document.getElementById('pin-input').value = '';
+}
+
+function showSetupErr(msg) {
+  const el = document.getElementById('err-msg');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function showDashboard() {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadSkeletons(); fetchThermostats();
+  pollTimer = setInterval(fetchThermostats, POLL_MS);
+}
+
+// ── PIN modal ──
+function openPinModal() {
+  if (unlocked) { lockControls(); return; }
+  pinEntry = ''; updatePinDots();
+  document.getElementById('pin-modal').style.display = 'flex';
+}
+
+function closePinModal() {
+  document.getElementById('pin-modal').style.display = 'none';
+  pinEntry = ''; updatePinDots();
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('pin-modal')) closePinModal();
+}
+
+function pinKey(d) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += d; updatePinDots();
+  if (pinEntry.length === 4) setTimeout(checkPin, 120);
+}
+
+function pinDel() { pinEntry = pinEntry.slice(0,-1); updatePinDots(); }
+
+function updatePinDots(state) {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    dot.className = 'pin-dot';
+    if (state === 'error') dot.classList.add('error');
+    else if (i < pinEntry.length) dot.classList.add('filled');
+  }
+}
+
+function checkPin() {
+  if (pinEntry === controlPin) {
+    unlocked = true; closePinModal();
+    const badge = document.getElementById('pin-badge');
+    badge.textContent = '🔓 lock controls'; badge.classList.add('unlocked');
+    showControls(true);
+  } else {
+    updatePinDots('error');
+    setTimeout(() => { pinEntry = ''; updatePinDots(); }, 800);
+  }
+}
+
+function lockControls() {
+  unlocked = false;
+  const badge = document.getElementById('pin-badge');
+  badge.textContent = '🔒 unlock controls'; badge.classList.remove('unlocked');
+  showControls(false);
+}
+
+function showControls(show) {
+  document.querySelectorAll('.t-controls').forEach(el => el.classList.toggle('visible', show));
+}
+
+// ── Fetch ──
+function loadSkeletons() {
+  document.getElementById('grid').innerHTML = Array(4).fill('<div class="skeleton"></div>').join('');
+}
+
+async function fetchThermostats() {
+  setStatus('loading');
+  try {
+    const res = await fetch(`${API}/devices?capability=thermostat`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+    });
+    if (res.status === 401) { setStatus('error', 'Invalid token'); return; }
+    if (!res.ok) { setStatus('error', `API error ${res.status}`); return; }
+    const data = await res.json();
+    const devices = data.items || [];
+    if (!devices.length) {
+      document.getElementById('grid').innerHTML = '<p style="color:var(--muted);font-size:14px;padding:1rem 0;">No thermostat devices found. Check token scopes.</p>';
+      setStatus('ok'); return;
+    }
+    deviceCache = await Promise.all(devices.map(fetchStatus));
+    renderCards(deviceCache); renderSummary(deviceCache);
+    lastUpdated = new Date(); setStatus('ok'); updateRefreshInfo();
+    if (unlocked) showControls(true);
+  } catch(e) { setStatus('error', 'Network error'); }
+}
+
+async function fetchStatus(device) {
+  try {
+    const res = await fetch(`${API}/devices/${device.deviceId}/status`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }
+    });
+    const data = await res.json();
+    const c = data.components?.main || {};
+    return {
+      id: device.deviceId,
+      name: device.label || device.name || 'Thermostat',
+      temp: c.temperatureMeasurement?.temperature?.value,
+      unit: c.temperatureMeasurement?.temperature?.unit || 'F',
+      setpointHeat: c.thermostatHeatingSetpoint?.heatingSetpoint?.value,
+      setpointCool: c.thermostatCoolingSetpoint?.coolingSetpoint?.value,
+      mode: c.thermostatMode?.thermostatMode?.value || 'off',
+      opState: c.thermostatOperatingState?.thermostatOperatingState?.value || '',
+      humidity: c.relativeHumidityMeasurement?.humidity?.value,
+    };
+  } catch { return { id: device.deviceId, name: device.label || 'Thermostat', error: true }; }
+}
+
+// ── Commands ──
+async function applyChanges(deviceId) {
+  const btn = document.getElementById(`send-${deviceId}`);
+  const d = deviceCache.find(x => x.id === deviceId);
+  const pending = pendingChanges[deviceId] || {};
+  if (!d) return;
+
+  if (btn) { btn.textContent = 'sending...'; btn.classList.add('sending'); }
+
+  const modeToSend = pending.mode ?? d.mode;
+  const spToSend = pending.setpoint ?? Math.round(currentSP(d));
+
+  try {
+    const cmds = [];
+    if (pending.mode && pending.mode !== d.mode) {
+      cmds.push({ component:'main', capability:'thermostatMode', command:'setThermostatMode', arguments:[modeToSend] });
+    }
+    const spCap = modeToSend === 'cool' ? 'thermostatCoolingSetpoint' : 'thermostatHeatingSetpoint';
+    const spCmd = modeToSend === 'cool' ? 'setCoolingSetpoint' : 'setHeatingSetpoint';
+    cmds.push({ component:'main', capability:spCap, command:spCmd, arguments:[spToSend] });
+
+    const res = await fetch(`${API}/devices/${deviceId}/commands`, {
+      method: 'POST',
+      headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ commands: cmds })
+    });
+    if (btn) {
+      btn.classList.remove('sending');
+      if (res.ok) { btn.textContent = '✓ applied'; btn.classList.add('success'); setTimeout(() => fetchThermostats(), 3000); }
+      else         { btn.textContent = '✗ failed';  btn.classList.add('fail'); }
+      setTimeout(() => { if(btn){ btn.textContent='apply changes'; btn.className='send-btn'; } }, 2500);
+    }
+  } catch {
+    if (btn) { btn.classList.remove('sending'); btn.textContent='✗ error'; btn.classList.add('fail'); setTimeout(()=>{ if(btn){btn.textContent='apply changes';btn.className='send-btn';} },2500); }
+  }
+}
+
+// ── Render ──
+function currentSP(d) {
+  return d.mode === 'cool' ? (d.setpointCool ?? 72) : (d.setpointHeat ?? 68);
+}
+
+function renderCards(devices) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = devices.map(d => {
+    if (d.error) return `<div class="t-card"><div class="t-room">${d.name}</div><div style="color:var(--muted);font-size:13px;font-family:'DM Mono',monospace;">failed to load</div></div>`;
+
+    const sp = Math.round(currentSP(d));
+    if (!pendingChanges[d.id]) pendingChanges[d.id] = { setpoint: sp, mode: d.mode };
+    const pendSP = pendingChanges[d.id].setpoint ?? sp;
+    const pendMode = pendingChanges[d.id].mode ?? d.mode;
+
+    const modeCard = d.opState === 'heating' ? 'heating' : d.opState === 'cooling' ? 'cooling' : '';
+    const modeBadge = { heat:'mode-heat', cool:'mode-cool', auto:'mode-auto' }[d.mode] || 'mode-off';
+
+    const setpointDisplay = () => {
+      if (d.mode === 'heat' && d.setpointHeat != null) return `heat → <span>${Math.round(d.setpointHeat)}°${d.unit}</span>`;
+      if (d.mode === 'cool' && d.setpointCool != null) return `cool → <span>${Math.round(d.setpointCool)}°${d.unit}</span>`;
+      if (d.mode === 'auto') {
+        const h = d.setpointHeat != null ? Math.round(d.setpointHeat) : '—';
+        const c = d.setpointCool != null ? Math.round(d.setpointCool) : '—';
+        return `<span>${h}°</span> – <span>${c}°${d.unit}</span>`;
+      }
+      return '<span style="color:var(--muted)">off</span>';
+    };
+
+    const modeBtns = ['heat','cool','off','auto'].map(m =>
+      `<button class="mode-btn${pendMode===m?' active-'+m:''}" onclick="pickMode('${d.id}','${m}')" id="mbtn-${d.id}-${m}">${m}</button>`
+    ).join('');
+
+    return `
+    <div class="t-card ${modeCard}" id="card-${d.id}">
+      <div class="t-room">${d.name}</div>
+      <div class="t-temp">${d.temp != null ? Math.round(d.temp) : '—'}<span class="t-unit">°${d.unit}</span></div>
+      <div class="t-setpoint">${setpointDisplay()}</div>
+      <div class="t-footer">
+        <span class="t-mode ${modeBadge}">${d.opState || d.mode || 'off'}</span>
+        ${d.humidity != null ? `<span class="t-humidity">${Math.round(d.humidity)}% rh</span>` : ''}
+      </div>
+      <div class="t-controls${unlocked?' visible':''}" id="ctrl-${d.id}">
+        <div class="ctrl-label" style="margin-top:0">setpoint</div>
+        <div class="setpoint-row">
+          <button class="ctrl-btn" onclick="nudge('${d.id}',-1)">−</button>
+          <div class="setpoint-val" id="spval-${d.id}">${pendSP}°${d.unit}</div>
+          <button class="ctrl-btn" onclick="nudge('${d.id}',+1)">+</button>
+        </div>
+        <div class="ctrl-label">mode</div>
+        <div class="mode-row" id="mrow-${d.id}">${modeBtns}</div>
+        <button class="send-btn" id="send-${d.id}" onclick="applyChanges('${d.id}')">apply changes</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function nudge(id, delta) {
+  if (!pendingChanges[id]) pendingChanges[id] = {};
+  const d = deviceCache.find(x => x.id === id);
+  const cur = pendingChanges[id].setpoint ?? Math.round(currentSP(d));
+  pendingChanges[id].setpoint = cur + delta;
+  const el = document.getElementById(`spval-${id}`);
+  if (el) el.textContent = `${cur+delta}°${d?.unit||'F'}`;
+}
+
+function pickMode(id, mode) {
+  if (!pendingChanges[id]) pendingChanges[id] = {};
+  pendingChanges[id].mode = mode;
+  ['heat','cool','off','auto'].forEach(m => {
+    const btn = document.getElementById(`mbtn-${id}-${m}`);
+    if (btn) btn.className = `mode-btn${m===mode?' active-'+m:''}`;
+  });
+}
+
+function renderSummary(devices) {
+  const valid = devices.filter(d => !d.error && d.temp != null);
+  if (!valid.length) return;
+  const avg = Math.round(valid.reduce((s,d) => s+d.temp,0) / valid.length);
+  const heating = devices.filter(d => d.opState==='heating').length;
+  const cooling = devices.filter(d => d.opState==='cooling').length;
+  const hd = valid.filter(d => d.humidity != null);
+  const hum = hd.length ? Math.round(hd.reduce((s,d)=>s+d.humidity,0)/hd.length) : null;
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-card"><div class="s-label">Avg temp</div><div class="s-val">${avg}°</div></div>
+    <div class="summary-card"><div class="s-label">Devices</div><div class="s-val">${devices.length}</div></div>
+    <div class="summary-card"><div class="s-label">Heating</div><div class="s-val" style="color:${heating?'var(--heat)':'var(--muted)'}">${heating}</div></div>
+    <div class="summary-card"><div class="s-label">Cooling</div><div class="s-val" style="color:${cooling?'var(--cool)':'var(--muted)'}">${cooling}</div></div>
+    ${hum!=null?`<div class="summary-card"><div class="s-label">Avg humidity</div><div class="s-val">${hum}%</div></div>`:''}
+  `;
+}
+
+function setStatus(state, msg) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot';
+  if (state==='ok')    { dot.classList.add('live');  txt.textContent = 'live'; }
+  else if (state==='error') { dot.classList.add('error'); txt.textContent = msg||'error'; }
+  else { txt.textContent = 'updating...'; }
+}
+
+function updateRefreshInfo() {
+  const el = document.getElementById('refresh-info');
+  if (lastUpdated) el.textContent = `updated ${lastUpdated.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} · 60s refresh`;
+}
+
+// ── Boot ──
+window.addEventListener('load', () => {
+  const t = localStorage.getItem('st_token');
+  const p = localStorage.getItem('st_pin');
+  if (t && p) { token=t; controlPin=p; showDashboard(); }
+});
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') closePinModal(); });
+</script>
+</body>
+</html>
